@@ -1,0 +1,8 @@
+# Байткод Python
+__pycache__/
+*.pyc
+
+# Служебные файлы IDE и ОС
+.idea/
+.vscode/
+.DS_Store
