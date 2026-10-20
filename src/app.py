@@ -8,17 +8,19 @@ import tkinter as tk
 from src import config
 from src.models.flock import Flock
 from src.renderers.renderer import Renderer
+from src.widgets.controls import ControlPanel
 
 
 class App:
-    """Приложение «Бойды»: окно, холст и главный цикл анимации.
+    """Приложение «Бойды»: окно, холст, панель управления и главный цикл.
 
-    Класс связывает модель (``Flock``), которая считает движение,
-    и ``Renderer``, который его рисует.
+    Класс связывает три части программы: модель (``Flock``) считает
+    движение, ``Renderer`` его рисует, а ``ControlPanel`` и обработчики
+    клавиш меняют параметры модели.
     """
 
     def __init__(self) -> None:
-        """Создать окно и холст."""
+        """Создать окно и все элементы интерфейса."""
         self.root = tk.Tk()
         self.root.title("Бойды — моделирование стаи")
         self.root.resizable(False, False)
@@ -27,11 +29,16 @@ class App:
                                 height=config.CANVAS_HEIGHT,
                                 bg=config.BACKGROUND_COLOR,
                                 highlightthickness=0)
-        self.canvas.pack()
+        self.canvas.pack(side="left")
 
         self.flock = Flock(config.CANVAS_WIDTH, config.CANVAS_HEIGHT,
                            config.DEFAULT_BOID_COUNT)
         self.renderer = Renderer(self.canvas)
+        self.controls = ControlPanel(self.root, self.flock.settings,
+                                     on_count=self.flock.set_count,
+                                     on_pause=self.toggle_pause,
+                                     on_reset=self.reset)
+        self.controls.pack(side="right", fill="y")
 
         self.paused = False
         self.fps = float(config.FPS)
@@ -41,7 +48,8 @@ class App:
     def _bind_events(self) -> None:
         """Назначить клавиши и действия мыши."""
         for force, key in config.FORCE_KEYS.items():
-            self.root.bind(key, lambda _e, f=force: self.toggle_force(f))
+            self.root.bind(key, lambda _e, f=force:
+                           self.controls.toggle_force(f))
         self.root.bind("<space>", lambda _e: self.toggle_pause())
         self.root.bind("<Key>", self._on_key)
         self.canvas.bind("<Button-1>", self.add_boids)
@@ -62,15 +70,10 @@ class App:
     # ------------------------------------------------------------------
     # Действия пользователя
     # ------------------------------------------------------------------
-    def toggle_force(self, force: str) -> None:
-        """Включить или выключить одну из трёх сил стаи."""
-        attribute = f"{force}_enabled"
-        setattr(self.flock.settings, attribute,
-                not getattr(self.flock.settings, attribute))
-
     def toggle_pause(self) -> None:
         """Поставить симуляцию на паузу или продолжить."""
         self.paused = not self.paused
+        self.controls.set_paused(self.paused)
 
     def reset(self) -> None:
         """Перемешать стаю: новые случайные положения и скорости."""
@@ -86,6 +89,7 @@ class App:
             if len(self.flock.boids) >= config.MAX_BOID_COUNT:
                 break
             self.flock.add_boid(event.x, event.y)
+        self.controls.set_count(len(self.flock.boids))
 
     # ------------------------------------------------------------------
     # Главный цикл
